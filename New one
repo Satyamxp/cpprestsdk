@@ -1,0 +1,57 @@
+#include <cpprest/http_client.h>
+#include <cpprest/json.h>
+#include <iostream>
+
+using namespace web;
+using namespace web::http;
+using namespace web::http::client;
+
+// Set your API key here
+const utility::string_t API_KEY = U("YOUR_API_KEY");
+
+void get_top_ranked_video(const utility::string_t& search_query)
+{
+    // Create the YouTube API URL for the search query
+    uri_builder builder(U("https://www.googleapis.com/youtube/v3/search"));
+    builder.append_query(U("part"), U("snippet"));
+    builder.append_query(U("q"), search_query);
+    builder.append_query(U("type"), U("video"));
+    builder.append_query(U("maxResults"), U("1"));
+    builder.append_query(U("key"), API_KEY);
+
+    http_client client(builder.to_uri());
+
+    // Send a GET request to the YouTube API
+    client.request(methods::GET).then([](http_response response)
+    {
+        if (response.status_code() == status_codes::OK)
+        {
+            // Extract relevant information from the JSON response
+            web::json::value json_response = response.extract_json().get();
+            web::json::value video = json_response[U("items")].at(0);
+            utility::string_t title = video[U("snippet")][U("title")].as_string();
+            utility::string_t video_id = video[U("id")][U("videoId")].as_string();
+
+            // Output the results
+            wprintf(L"Top-ranked video for '%s':\n", search_query.c_str());
+            wprintf(L"Video Title: %s\n", title.c_str());
+            wprintf(L"Video ID: %s\n", video_id.c_str());
+            wprintf(L"Watch on YouTube: https://www.youtube.com/watch?v=%s\n", video_id.c_str());
+        }
+        else
+        {
+            wprintf(L"Failed to fetch video data. Status code: %u\n", response.status_code());
+        }
+    }).wait();
+}
+
+int main()
+{
+    utility::string_t search_query;
+    std::wcout << L"Enter the search term: ";
+    std::getline(std::wcin, search_query);
+
+    get_top_ranked_video(search_query);
+
+    return 0;
+}
